@@ -1,1 +1,2 @@
 # DiffTune-MPC
+This repository contains the matlab code to implement DiffTune-MPC on a unicycle model with the system dyanmics and constraints included in 'Unicycle_model.m'. The file 'unicycle_difftune.m' includes the code to auto-tune the MPC parameters for a tracking problem on the unicycle model using the method proposed in the paper 'DiffTune-MPC: Closed-Loop Learning for Model Predictive Control'.
