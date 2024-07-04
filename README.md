@@ -1,2 +1,4 @@
 # DiffTune-MPC
 This repository contains the matlab code to implement DiffTune-MPC on a differential wheeled robot with system dyanmics and constraints included in 'Differential_Wheeled_Robot.m'. The file 'Differential_Wheeled_Robot_DifftuneMPC.m' includes the code to auto-tune the MPC parameters for a tracking problem on this model using the method proposed in the paper 'DiffTune-MPC: Closed-Loop Learning for Model Predictive Control'. Specifically, we solve the original MPC problem using acados and the auxiliary MPC problem (for analytical gradient) using quadprog. To apply DiffTune-MPC, please first install acados following [https://docs.acados.org/matlab_octave_interface/index.html.](https://docs.acados.org/index.html) and read the problem formulation in acados.
+
+Sheng: July 3, tested on Ubuntu 20.04, matlab 2022b, acados github version on July 2, 2024
