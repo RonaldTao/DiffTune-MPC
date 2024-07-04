@@ -486,7 +486,8 @@ function du_dQR = get_dQR_quadprog(W,x_opt,u_opt,model,desired_state,ii,ocp_N,gr
         else
             f = [f;0*unitVec(1:nx)]; 
         end
-        grad = quadprog(H,f,[],[],Aeq,Beq,[],[],[]);
+        options = optimoptions('quadprog','Display','off');
+        grad = quadprog(H,f,[],[],Aeq,Beq,[],[],[],options);
         du_dQR = [du_dQR grad(nx+1:nx+nu)]; 
     end
 end
