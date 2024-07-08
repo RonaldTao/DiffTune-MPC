@@ -25,7 +25,7 @@ If you think this toolset is helpful to your research/application, please cite:<
 
 ## Prerequisites
 
-You need to install [acados](https://docs.acados.org/index.html) on your computer for **Matlab + Simulink and Octave Interface**. Then, clone this repository into the ```/examples``` folder under the installed acados folder. Make sure ```env.sh``` is included in the cloned folder.
+You need to install [acados](https://docs.acados.org/index.html) on your computer for **Matlab + Simulink and Octave Interface**. Then, clone this repository into the ```/acados/examples``` folder under the installed acados folder. Make sure ```env.sh``` is included in the cloned folder.
 
 ## Run examples
 
