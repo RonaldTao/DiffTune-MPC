@@ -1,6 +1,6 @@
 # DiffTune-MPC
 
-This is a DiffTune-MPC toolset for MPC controller auto-tuning using sensitivity propagation. We provide two examples that demonstrate the applications of DiffTune-MPC in matlab to facilitate quick deployment to other applications. 
+This is a DiffTune-MPC toolset for MPC controller auto-tuning using sensitivity propagation. We provide two examples (one linear system and one nonlinear system) that demonstrate the applications of DiffTune-MPC in matlab to facilitate quick deployment to other applications. 
 
 Details of the DiffTune-MPC can be found in:<br />
 [DiffTune-MPC: Closed-Loop Learning for Model Predictive Control]([https://arxiv.org/abs/2209.10021](https://arxiv.org/abs/2312.11384))<br />
