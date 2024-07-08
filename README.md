@@ -31,4 +31,17 @@ You need to install [acados](https://docs.acados.org/index.html) on your compute
 
 We offer two examples: a differential wheeled robot and a double integrator system. In both examples, we aim to control the system to track a desired trajectory using MPC. The system dynamics and constraints are included in ```Differential_Wheeled_Robot.m``` and ```Double_Integrator_System.m```. The code for application of Difftune-MPC is included in ```Differential_Wheeled_Robot_DifftuneMPC.m``` and ```Double_Integrator_System_DifftuneMPC.m```. For the differential wheeled robot, we inlcude a nonlinear system model with linear inequalities on the state and control input. We use acados to solve for the original MPC problem, and use quadprog to solve for the auxilary MPC problems (LMPC-Grad) to achieve the analytical gradients. For the linear double integrator system, we use acaods to solve for both the original MPC problem and the auxilary MPC problems. After running the example, you should be able to see two plots showing the tracking performance of the closed-loop system using the initial parameters and the learned parameters using Difftune-MPC.
 
-Sheng: July 3, tested on Ubuntu 20.04, matlab 2022b, acados github version on July 2, 2024
+## Issues/Questions/Suggestions
+Feel free to open up an issue if you run into trouble. 
+
+# Authors
+
+**[Ran Tao](https://github.com/RonaldTao)**
+**[Sheng Cheng](https://github.com/Sheng-Cheng)**
+
+
+## License
+
+This project is licensed under the GPL-3.0 License - see the [LICENSE](LICENSE) file for details
+
+[![Hits](https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=https%3A%2F%2Fgithub.com%2FSheng-Cheng%2FDiffTuneOpenSource&count_bg=%2379C83D&title_bg=%23555555&icon=&icon_color=%23E7E7E7&title=hits&edge_flat=false)](https://hits.seeyoufarm.com)
