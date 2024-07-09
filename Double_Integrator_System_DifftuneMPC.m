@@ -152,7 +152,7 @@ while(1)
 
         % Solve for other analytical gradients (du/dtheta) by solving
         % LMPC-Grad using acados
-        [du_dQR,du_dxinit] = get_du_dQR_acados(x_opt,u_opt,ubu,lbu,nu,nx,ocp_grad,N,pos_des,vel_des,model,W);
+        [du_dQR,du_dxinit] = get_du_dQR_acados(ocp,x_opt,u_opt,ubu,lbu,nu,nx,ocp_grad,N,pos_des,vel_des,model,W,ii);
 
         % sensitivity propagation: use the current value of the state x and 
         % control input u to find dx/dtheta following equation (5)
@@ -390,7 +390,7 @@ function [ocp,sim] = setup_acados(model,ocp_N,W,Jbx,lbx,ubx,Jbu,lbu,ubu)
     % sim.C_sim_ext_fun
 end
 
-function [du_dQR,du_dxinit] = get_du_dQR_acados(x_opt,u_opt,ubu,lbu,nu,nx,ocp_grad,N,pos_des,vel_des,model,W)
+function [du_dQR,du_dxinit] = get_du_dQR_acados(ocp,x_opt,u_opt,ubu,lbu,nu,nx,ocp_grad,N,pos_des,vel_des,model,W,currentTime)
     % if the control constraints are active, then analytical 
     % gradients will be zero
     if abs(u_opt(1)-ubu)<=0.01 || abs(u_opt(1)-lbu)<=0.01 
@@ -416,8 +416,8 @@ function [du_dQR,du_dxinit] = get_du_dQR_acados(x_opt,u_opt,ubu,lbu,nu,nx,ocp_gr
         RHS = zeros(N*(nx+nu),(nx+nu)^2);
         for kk = 1:N
             tau_opt = [x_opt(:,kk);u_opt(:,kk)];
-            tau_ref = [pos_des((ii+kk-1)*model.Ts);
-                vel_des((ii+kk-1)*model.Ts);
+            tau_ref = [pos_des((currentTime+kk-1)*model.Ts);
+                vel_des((currentTime+kk-1)*model.Ts);
                 zeros(nu,1)];
             RHS((nx+nu)*(kk-1)+1:(nx+nu)*kk,:) = 0.5* (kron((-tau_opt+tau_ref)',eye(nx+nu)) + kron(eye(nx+nu),(-tau_opt+tau_ref)'));
         end

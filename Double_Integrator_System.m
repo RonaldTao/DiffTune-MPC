@@ -5,7 +5,7 @@
 % Ran Tao, Sheng Cheng
 % University of Illinois Urbana-Champaign
 
-function model = Double_Tntegrator_System()
+function model = Double_Integrator_System()
 
 import casadi.*
 
