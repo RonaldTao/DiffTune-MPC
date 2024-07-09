@@ -5,7 +5,9 @@
 % Please install acados in matlab before running this example.
 % We define constraints, cost functions and everything in this example 
 % following instructions from acados.
-% For more info, check problem_formulation_ocp_mex.pdf from acados
+% For more info, check problem_formulation_ocp_mex.pdf under
+% acados/docs/problem_formulation.
+
 
 % Ran Tao, Sheng Cheng
 % University of Illinois Urbana-Champaign

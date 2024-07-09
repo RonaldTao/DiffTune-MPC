@@ -1,4 +1,6 @@
-% This script defines the system model for differential wheeled robot
+% This script defines the system model for a differential wheeled robot.
+% More info about the system can be found in Section VI of the paper
+% 'DiffTune-MPC: Closed-Loop Learning for Model Predictive Control' (https://arxiv.org/pdf/2312.11384)
 
 % Ran Tao, Sheng Cheng
 % University of Illinois Urbana-Champaign
