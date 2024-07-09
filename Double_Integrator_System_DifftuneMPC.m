@@ -5,7 +5,8 @@
 % Please install acados in matlab before running this example.
 % We define constraints, cost functions and everything in this example 
 % following instructions from acados.
-% For more info, check problem_formulation_ocp_mex.pdf from acados
+% For more info, check problem_formulation_ocp_mex.pdf under
+% acados/docs/problem_formulation.
 
 % Ran Tao, Sheng Cheng
 % University of Illinois Urbana-Champaign
@@ -149,65 +150,9 @@ while(1)
 
         N = ocp_N;
 
-        if abs(u_opt(1)-ubu)<=0.01 || abs(u_opt(1)-lbu)<=0.01 
-            % if the control constraints are active, then analytical 
-            % gradients will be zero
-            du_dQR = [0 0 0];
-            du_dxinit = [0 0];
-        else
-            % Compute du_dxinit
-            sens_u = zeros(nu, nx); % sens_u here is the du_dxinit, and we use built-in function in acados
-            field = 'ex';
-            stage = 0;
-            % get sensitivities w.r.t. initial state value with index
-            for index = 0:nx-1
-                ocp.eval_param_sens(field, stage, index);
-                temp = ocp.get('sens_u');
-                sens_u(:,index+1) = temp(:,1);
-            end
-            du_dxinit = sens_u;
-            % Ran, can you wrap the lines of code below to get_dQR_acados?
-            % similar to how you wrap the function get_dQR_quadprog in the
-            % other script.
-            % Compute du_dQ and du_dR by solving LMPC-Grad using ocp-grad
-            ocp_grad.set('constr_x0', zeros(nx,1));
-
-            % reformulate the cost function to solve for sensitivity
-            RHS = zeros(N*(nx+nu),(nx+nu)^2);
-            for kk = 1:N
-                tau_opt = [x_opt(:,kk);u_opt(:,kk)];
-                tau_ref = [pos_des((ii+kk-1)*model.Ts);
-                    vel_des((ii+kk-1)*model.Ts);
-                    zeros(nu,1)];
-                RHS((nx+nu)*(kk-1)+1:(nx+nu)*kk,:) = 0.5* (kron((-tau_opt+tau_ref)',eye(nx+nu)) + kron(eye(nx+nu),(-tau_opt+tau_ref)'));
-            end
-
-            % solve for the du/dQ11
-            for kk = 1:N
-                ocp_grad.set('cost_y_ref',inv(W)*RHS((nx+nu)*(kk-1)+1:(nx+nu)*kk,1),kk-1); % set the 1st column of RHS, which correspond to Q11
-            end
-            ocp_grad.set('cost_y_ref_e', zeros(nx,1));
-            ocp_grad.solve;
-            du_dQ11 = ocp_grad.get('u',0);
-
-            % solve for the du/dQ22
-            for kk = 1:N
-                ocp_grad.set('cost_y_ref',inv(W)*RHS((nx+nu)*(kk-1)+1:(nx+nu)*kk,5),kk-1); % set the 5th column of RHS, which correspond to Q22
-            end
-            ocp_grad.set('cost_y_ref_e', zeros(nx,1));
-            ocp_grad.solve;
-            du_dQ22 = ocp_grad.get('u',0);
-
-            % solve for the du/dR
-            for kk = 1:N
-                ocp_grad.set('cost_y_ref',inv(W)*RHS((nx+nu)*(kk-1)+1:(nx+nu)*kk,9),kk-1); % set the 9th column of RHS, which correspond to R
-            end
-            ocp_grad.set('cost_y_ref_e', zeros(nx,1));
-            ocp_grad.solve;
-            du_dR = ocp_grad.get('u',0);
-
-            du_dQR = [du_dQ11 du_dQ22 du_dR];
-        end
+        % Solve for other analytical gradients (du/dtheta) by solving
+        % LMPC-Grad using acados
+        [du_dQR,du_dxinit] = get_du_dQR_acados(x_opt,u_opt,ubu,lbu,nu,nx,ocp_grad,N,pos_des,vel_des,model,W);
 
         % sensitivity propagation: use the current value of the state x and 
         % control input u to find dx/dtheta following equation (5)
@@ -443,4 +388,64 @@ function [ocp,sim] = setup_acados(model,ocp_N,W,Jbx,lbx,ubx,Jbu,lbu,ubu)
     sim = acados_sim(sim_model, sim_opts);
     % sim.C_sim
     % sim.C_sim_ext_fun
+end
+
+function [du_dQR,du_dxinit] = get_du_dQR_acados(x_opt,u_opt,ubu,lbu,nu,nx,ocp_grad,N,pos_des,vel_des,model,W)
+    % if the control constraints are active, then analytical 
+    % gradients will be zero
+    if abs(u_opt(1)-ubu)<=0.01 || abs(u_opt(1)-lbu)<=0.01 
+            du_dQR = [0 0 0];
+            du_dxinit = [0 0];
+    else
+        % Compute du_dxinit
+        sens_u = zeros(nu, nx); % sens_u here is the du_dxinit, and we use built-in function in acados
+        field = 'ex';
+        stage = 0;
+        % get sensitivities w.r.t. initial state value with index
+        for index = 0:nx-1
+            ocp.eval_param_sens(field, stage, index);
+            temp = ocp.get('sens_u');
+            sens_u(:,index+1) = temp(:,1);
+        end
+        du_dxinit = sens_u;
+        
+        % Compute du_dQ and du_dR by solving LMPC-Grad using ocp-grad
+        ocp_grad.set('constr_x0', zeros(nx,1));
+
+        % reformulate the cost function to solve for sensitivity
+        RHS = zeros(N*(nx+nu),(nx+nu)^2);
+        for kk = 1:N
+            tau_opt = [x_opt(:,kk);u_opt(:,kk)];
+            tau_ref = [pos_des((ii+kk-1)*model.Ts);
+                vel_des((ii+kk-1)*model.Ts);
+                zeros(nu,1)];
+            RHS((nx+nu)*(kk-1)+1:(nx+nu)*kk,:) = 0.5* (kron((-tau_opt+tau_ref)',eye(nx+nu)) + kron(eye(nx+nu),(-tau_opt+tau_ref)'));
+        end
+
+        % solve for the du/dQ11
+        for kk = 1:N
+            ocp_grad.set('cost_y_ref',inv(W)*RHS((nx+nu)*(kk-1)+1:(nx+nu)*kk,1),kk-1); % set the 1st column of RHS, which correspond to Q11
+        end
+        ocp_grad.set('cost_y_ref_e', zeros(nx,1));
+        ocp_grad.solve;
+        du_dQ11 = ocp_grad.get('u',0);
+
+        % solve for the du/dQ22
+        for kk = 1:N
+            ocp_grad.set('cost_y_ref',inv(W)*RHS((nx+nu)*(kk-1)+1:(nx+nu)*kk,5),kk-1); % set the 5th column of RHS, which correspond to Q22
+        end
+        ocp_grad.set('cost_y_ref_e', zeros(nx,1));
+        ocp_grad.solve;
+        du_dQ22 = ocp_grad.get('u',0);
+
+        % solve for the du/dR
+        for kk = 1:N
+            ocp_grad.set('cost_y_ref',inv(W)*RHS((nx+nu)*(kk-1)+1:(nx+nu)*kk,9),kk-1); % set the 9th column of RHS, which correspond to R
+        end
+        ocp_grad.set('cost_y_ref_e', zeros(nx,1));
+        ocp_grad.solve;
+        du_dR = ocp_grad.get('u',0);
+
+        du_dQR = [du_dQ11 du_dQ22 du_dR];
+    end
 end
