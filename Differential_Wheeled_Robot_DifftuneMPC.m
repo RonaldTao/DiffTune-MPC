@@ -1,53 +1,21 @@
-%
-% Copyright (c) The acados authors.
-%
-% This file is part of acados.
-%
-% The 2-Clause BSD License
-%
-% Redistribution and use in source and binary forms, with or without
-% modification, are permitted provided that the following conditions are met:
-%
-% 1. Redistributions of source code must retain the above copyright notice,
-% this list of conditions and the following disclaimer.
-%
-% 2. Redistributions in binary form must reproduce the above copyright notice,
-% this list of conditions and the following disclaimer in the documentation
-% and/or other materials provided with the distribution.
-%
-% THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-% AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-% IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-% ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
-% LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-% CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-% SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-% INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-% CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-% ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-% POSSIBILITY OF SUCH DAMAGE.;
+% This script implements Difftune-MPC on a differential wheeled robot.
+% The original MPC problem is solved using acaods and the analytical 
+% gradients are obtained by solving extra MPC problems (LMPC-Grad) using 
+% quadprog since the linearized system is time-varying.
+% Please install acados in matlab before running this example.
+% We define constraints, cost functions and everything in this example 
+% following instructions from acados.
+% For more info, check problem_formulation_ocp_mex.pdf from acados
 
-%
+% Ran Tao, Sheng Cheng
+% University of Illinois Urbana-Champaign
 
-%% example of closed loop simulation
 clear all
 clc
 close all
-% This script implements Difftune-MPC on a differential wheeled robot.
-% The original MPC problem is solved using acaods and the analytical gradients are obtained by solving extra MPC problems (LMPC-Grad) using quadprog since the linearized system is time-varying.
-% Please install acados in matlab before running this example.
-% We define constraints, cost functions and everything in this example following instructions from acados.
-% For more info, check problem_formulation_ocp_mex.pdf from acados
-
-% check that env.sh has been run
-env_run = getenv('ENV_RUN');
-if (~strcmp(env_run, 'true'))
-    ! source env.sh
-    % 	error('env.sh has not been sourced! Before executing this example, run: source env.sh');
-end
 
 %% setup problem
-model = Differential_Wheeled_Robot; %achieve model
+model = Differential_Wheeled_Robot; % load model of the target system
 
 % dims
 T = 10.0; % total horizon time for the simulation
@@ -57,21 +25,19 @@ ny = model.ny; % number of outputs in lagrange term
 ny_e = model.ny_e; % number of outputs in mayer term
 ng = model.ng;
 nh = model.nh;
-% constraint formulation
-% bounds on x and u
-
 
 %% Set up acados
 ocp_N = 10; % prediction horizon for discrete time system in MPC
+
 % Initial weight matrix in lagrange term
 W = diag([1*ones(nx,1);... % pos, vel
             1*ones(nu,1) ]); % control
 [ocp,sim] = setup_acados(model,ocp_N,W);
 
 %% add desired trajectory for tracking
-pos_1_des = @(t) 1-cos(t/2);
-pos_2_des = @(t) 0.5*t;
-pos_3_des = @(t) atan2(0.5,0.5*sin(t/2));
+pos_1_des = @(t) 1-cos(t/2); % position x
+pos_2_des = @(t) 0.5*t;      % position y
+pos_3_des = @(t) atan2(0.5,0.5*sin(t/2)); % angle
 
 %% Difftune-MPC
 % Parameters for DiffTune
@@ -99,7 +65,7 @@ grad_f_x_fcn = Function('grad_f_x_fcn',{model.sym_x,model.sym_u},{grad_f_x});
 grad_f_u=jacobian(model.expr_f_discrete,model.sym_u);
 grad_f_u_fcn = Function('grad_f_u_fcn',{model.sym_x,model.sym_u},{grad_f_u});
 
-%% loop
+%% DiffTune main loop
 while(1)
     theta_gradient = zeros(1,nx+nu);
     difftune_itr = difftune_itr + 1;
@@ -121,14 +87,16 @@ while(1)
     % initialize the sensitivity
     dx_dtheta = zeros(nx,nx+nu);
 
-    % for each iteration in the following loop, we solve the MPC problem using acados, and achieve the
-    % dx/dtheta and du/dtheta in equation (5)
-    % After the loop, we have run simulation over entire time hoziron T, and then use
-    % the calculated dx/dtheta and du/dtheta to update theta, which is Q
-    % and R in W
+    % for each iteration in the following for-loop, we solve the MPC 
+    % problem using acados, and compute the Jacobians dx/dtheta and 
+    % du/dtheta in  equation (5).
+    % After the for-loop, we have run simulation over entire time hoziron 
+    % T, and then use the calculated dx/dtheta and du/dtheta to update 
+    % theta, which contains Q and R matrices that are compactly coded in 
+    % the variable W in this code.
     
     for ii=1:n_sim
-        % desired_state(index,time)
+        % reset the initial states and references
         ocp.set('constr_x0', x_sim(:,ii));
         ocp.set('init_x', x_traj_init);
         ocp.set('init_u', u_traj_init);
@@ -147,7 +115,7 @@ while(1)
                             pos_3_des((ii+ocp_N)*model.Ts)];
         ocp.set('cost_y_ref_e', time_varying_y_ref_N);
 
-        % solve the optimization problem of MPC at the current iteration
+        % solve the optimization problem of MPC at the current step
         ocp.solve();
         status = ocp.get('status');
         
@@ -174,7 +142,8 @@ while(1)
         % set current input in sim
         sim.set('u', u_sim(:,ii));
         
-        % update theta_gradient with RMSE loss
+        % update theta_gradient, which is corresponding to dL/dtheta in the
+        % paper
         theta_gradient = theta_gradient + 2*([x_sim(1:2,ii)-desired_state(1:2,ii);zeros(1,1)])'*dx_dtheta;
 
         x_opt = ocp.get('x');
@@ -197,8 +166,8 @@ while(1)
         % Solve for other analytical gradients (du/dtheta) by solving LMPC-Grads using quadprog
         du_dQR = get_dQR_quadprog(W,x_opt,u_opt,model,desired_state,ii,ocp_N,grad_f_x_fcn,grad_f_u_fcn);
 
-        % use the current value of the state x and control input u to find
-        % dx/dtheta following equation (5)
+        % sensitivity propagation: use the current value of the state x and 
+        % control input u to find dx/dtheta following equation (5)
         dx_dtheta = (grad_f_x_fcn(x_sim(:,ii),u_sim(:,ii)) + grad_f_u_fcn(x_sim(:,ii),u_sim(:,ii))*du_dxinit)*dx_dtheta + grad_f_u_fcn(x_sim(:,ii),u_sim(:,ii))*du_dQR;
 
         % simulate the next state of the system based on the solution to
@@ -208,11 +177,16 @@ while(1)
         % get new state
         x_sim(:,ii+1) = sim.get('xn');
     end
+    % save the history of the control actions
     u_hist = [u_hist; u_sim];
-    % use RMSE as the loss
+
+    % save the history of RMSE
     RMSE_hist = [RMSE_hist sqrt(mean(sum((desired_state(1:2,1:1+T/model.Ts)-x_sim(1:2,:)).^2,1)))];
+    % save the history of the loss
     loss_hist = [loss_hist sum((desired_state(1:2,1:1+T/model.Ts)-x_sim(1:2,:)).^2,'all')];
+    % save the history of theta_gradient
     theta_gradient_hist = [theta_gradient_hist;theta_gradient];
+
     fprintf('summed position error is %.3f\n',loss_hist(end));
     % update the cost coefficient
     W_new = W - learningRate * diag(theta_gradient);
@@ -260,26 +234,31 @@ while(1)
 end
 
 figure;
-plot((0:n_sim)*model.Ts, x_sim_init(1,:),'b-','linewidth',2,'DisplayName','closed-loop-x');
+subplot(2,1,1);
+plot((0:n_sim)*model.Ts, x_sim_init(1,:),'r-.','linewidth',2,'DisplayName','w. initial parameters');
 hold on;
-plot((0:n_sim)*model.Ts,desired_state(1,1:n_sim+1),'r-','linewidth',2,'DisplayName','desired-x');
-plot((0:n_sim)*model.Ts, x_sim_init(2,:),'b--','linewidth',2,'DisplayName','closed-loop-y');
-plot((0:n_sim)*model.Ts,desired_state(2,1:n_sim+1),'r--','linewidth',2,'DisplayName','desired-y');
+plot((0:n_sim)*model.Ts, x_sim_final(1,:),'b-','linewidth',2,'DisplayName','w. learned parameters');
+plot((0:n_sim)*model.Ts,desired_state(1,1:n_sim+1),'-','color',[0 0 1 0.4],'linewidth',2,'DisplayName','desired position');
 xlabel('Time [s]');
-ylabel('Pos [m]');
-legend;
-title('Tracking performance with initial parameters');
+ylabel('x [m]');
+legend('Location','best');
+title('position tracking comparison between initial and learned parameters');
 
-figure;
-plot((0:n_sim)*model.Ts, x_sim_final(1,:),'b-','linewidth',2,'DisplayName','closed-loop-x');
+subplot(2,1,2)
+title('position-y tracking')
+plot((0:n_sim)*model.Ts, x_sim_init(2,:),'r-.','linewidth',2,'DisplayName','w. initial parameters');
 hold on;
-plot((0:n_sim)*model.Ts,desired_state(1,1:n_sim+1),'r-','linewidth',2,'DisplayName','desired-x');
-plot((0:n_sim)*model.Ts, x_sim_final(2,:),'b--','linewidth',2,'DisplayName','closed-loop-y');
-plot((0:n_sim)*model.Ts,desired_state(2,1:n_sim+1),'r--','linewidth',2,'DisplayName','desired-y');
+plot((0:n_sim)*model.Ts, x_sim_final(2,:),'b-','linewidth',2,'DisplayName','w. learned parameters');
+plot((0:n_sim)*model.Ts,desired_state(2,1:n_sim+1),'-','color',[0 0 1 0.4],'linewidth',2,'DisplayName','desired position');
 xlabel('Time [s]');
-ylabel('Pos [m]');
-legend;
-title('Tracking performance with learned parameters');
+ylabel('y [m]');
+legend('Location','best');
+
+% RMSE reduction
+figure;
+plot(RMSE_hist,'LineWidth',2);
+xlabel('iterations');
+ylabel('RMSE [m]');
 
 function [ocp,sim] = setup_acados(model,ocp_N,W)
     % handy arguments
@@ -452,11 +431,8 @@ function [ocp,sim] = setup_acados(model,ocp_N,W)
     sim_opts.set('method', sim_method);
     sim_opts.set('sens_forw', sim_sens_forw);
     
-    % acados sim (compiling mex)
     % create sim
     sim = acados_sim(sim_model, sim_opts);
-    % sim.C_sim
-    % sim.C_sim_ext_fun
 end
 
 function du_dQR = get_dQR_quadprog(W,x_opt,u_opt,model,desired_state,ii,ocp_N,grad_f_x_fcn,grad_f_u_fcn)
