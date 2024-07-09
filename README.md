@@ -25,7 +25,7 @@ If you think this toolset is helpful to your research/application, please cite:<
 
 ## Prerequisites
 
-You need to install [acados](https://docs.acados.org/index.html) on your computer and also install the [Matlab + Simulink and Octave Interface](https://docs.acados.org/matlab_octave_interface/index.html). Then, clone this repository into the ```ACADOS_DIR/examples/acados_matlab_octave``` folder, where ACADOS_DIR is the directory of acados. Make sure to source ```env.sh``` under ACADOS_DIR/examples/acados_matlab_octave/DiffTune-MPC before starting MATLAB.
+You need to install [acados](https://docs.acados.org/index.html) on your computer and also install the [Matlab + Simulink and Octave Interface](https://docs.acados.org/matlab_octave_interface/index.html). Then, clone this repository into the ```ACADOS_DIR/examples/acados_matlab_octave``` folder, where ACADOS_DIR is the directory of acados. Make sure to source ```env.sh``` under ACADOS_DIR/examples/acados_matlab_octave/DiffTune-MPC before starting MATLAB. The code has been tested in Ubuntu 20.04.
 
 ## Run examples
 
